@@ -1,0 +1,13 @@
+SQL> /
+
+ ALTER PROCEDURE P_EC2 COMPILE ;                                                
+ ALTER PROCEDURE P_POPULARE_PONTAJE COMPILE ;                                   
+ ALTER PROCEDURE P_POPULARE_PONTAJE2 COMPILE ;                                  
+ ALTER PROCEDURE P_POPULARE_PONTAJE_LUNA COMPILE ;                              
+ ALTER PROCEDURE P_POPULARE_PONTAJE_AN COMPILE ;                                
+ ALTER PROCEDURE ORDONARE_5 COMPILE ;                                           
+ ALTER PROCEDURE ORDONARE_5V2 COMPILE ;                                         
+
+7 rows selected.
+
+SQL> SPOOL OFF
