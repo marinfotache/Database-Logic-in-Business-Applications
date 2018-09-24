@@ -1,0 +1,12 @@
+spool f:\oracle_carte\cap04_creare_tabele\re_creare_notnull.sql
+
+
+SELECT ' ALTER TABLE ' || tabela  || ' MODIFY ( ' || column_name
+	|| ' NOT NULL '
+FROM user_tab_columns 
+WHERE nullable = 'Y' 
+ORDER BY table_name, column_name ;
+
+spool off
+
+

@@ -1,0 +1,32 @@
+spool f:\oracle_carte\cap04_creare_tabele\re_creare_check.sql
+
+DROP TABLE temp1;
+
+CREATE TABLE temp1 (
+	restrictie VARCHAR2(30),
+	tip_restrictie varchar(20),
+	tabela VARCHAR2(30),
+	expresie CLOB
+	) ;
+
+INSERT INTO temp1
+	SELECT constraint_name, constraint_type, table_name, 
+		TO_LOB(search_condition)
+	FROM user_constraints
+	WHERE constraint_type = 'C' ;
+
+COMMIT ;
+
+-- NOT NULL 
+SELECT ' ALTER TABLE ' || tabela  || ' MODIFY ( ' || atribut || 
+	' CONSTRAINT ' || restrictie ; '
+FROM user_cons_columns t0 INNER JOIN temp1 t1 ON
+	t0.constraint_name = t1.restrictie ;
+
+
+
+
+
+spool off
+
+
