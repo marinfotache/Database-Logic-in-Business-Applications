@@ -1,0 +1,8 @@
+CREATE OR REPLACE TRIGGER trg_personal_ins_befo_row
+BEFORE INSERT ON personal
+REFERENCING OLD AS OLD NEW AS NEW
+FOR EACH ROW
+BEGIN
+	SELECT NVL(MAX(marca),1000) + 1 INTO :NEW.marca FROM personal ;
+END ;
+

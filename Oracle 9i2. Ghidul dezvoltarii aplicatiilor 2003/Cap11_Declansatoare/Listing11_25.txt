@@ -1,0 +1,22 @@
+CREATE OR REPLACE TRIGGER la_logare
+ AFTER LOGON ON FOTACHEM.SCHEMA
+DECLARE
+	v_unu NUMBER(1) := 0 ;
+BEGIN
+	BEGIN
+		SELECT 1 INTO v_unu FROM dual WHERE EXISTS
+			(SELECT * FROM useri_ipeuri 
+			 WHERE useru=ora_login_user AND 
+				ip_autorizat=NVL(ora_client_ip_address,' ')) ;
+	EXCEPTION
+	WHEN NO_DATA_FOUND THEN
+		RAISE_APPLICATION_ERROR(-20510, 
+			'Nu aveti permisiunea de a va conecta de la acest calculator !');
+	END ;
+
+	-- renuntam la re_compilare ;
+--	INSERT INTO istoric_logari VALUES (ora_login_user, SYSTIMESTAMP, 
+--		NULL, ora_client_ip_address ) ; 
+END ;
+     
+
