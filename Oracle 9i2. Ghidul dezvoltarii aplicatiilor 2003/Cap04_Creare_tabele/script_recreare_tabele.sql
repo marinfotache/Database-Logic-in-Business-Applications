@@ -1,6 +1,7 @@
 column "--Creare_tabele" FORMAT A60
 column C2 FORMAT A40
 
+-- setare director si nume fisier in care va fi salvat scriptul
 spool f:\oracle_carte\cap04_creare_tabele\re_creare_tabele.sql
 SELECT
     '  CREATE TABLE ' || table_name || ' ( '  AS "--Creare_tabele",
