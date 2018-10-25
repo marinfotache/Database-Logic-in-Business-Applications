@@ -1,0 +1,13 @@
+CREATE OR REPLACE FUNCTION f_este_frunza (simbol_cont VARCHAR2)
+	RETURN BOOLEAN
+AS
+	v_unu NUMBER(1)  ;
+BEGIN
+	SELECT 1 INTO v_unu FROM DUAL WHERE EXISTS
+ (SELECT 1 FROM conturi_elementare WHERE ContElementar = simbol_cont) ;
+	RETURN TRUE ;
+EXCEPTION 
+	WHEN NO_DATA_FOUND THEN
+		RETURN FALSE ;
+END ;
+
