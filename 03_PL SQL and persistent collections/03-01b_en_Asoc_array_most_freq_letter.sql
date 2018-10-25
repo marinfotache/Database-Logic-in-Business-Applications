@@ -1,4 +1,4 @@
--- The same problem as in scripts 03-01d and 03-02b:
+-- Problem (reloaded :-) ):
 -- Find and display the most frequent letter in a given string
 
 -- Here is a new solution based on an associative array
@@ -60,7 +60,8 @@ END ;
 /
 
 
--- test 
+-- test (launch the anonymous blocks in Oracle SQL Developer)
+
 BEGIN
   DBMS_OUTPUT.PUT_LINE(p_most_freq_letter_aa('Ana are mere ăăășșșțțțuuu')) ;
 END ;

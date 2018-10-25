@@ -140,7 +140,8 @@ END pac_admission_5 ;
 /
 
 
--- test 
+
+-- test (launch next commands in Oracle SQL Developer)
 EXECUTE pac_admission_5.p_admission_varray
 
 SELECT * FROM applicants 

@@ -8,11 +8,11 @@ We will create two procedures, one for family names and the other for the
    with the family name of another student
 
 The problem can be solved using associative arrays (for family name and first name)
-which are initialized by BULK COLLECT clause. 
+which are initialized by the BULK COLLECT clause. 
 
 */
 
--- before that we make a copy of the table (to test the further procedures)
+-- we make a copy of the table (to test further procedures)
 -- CREATE TABLE studs_feaa_initial AS SELECT * FROM studs_feaa ;
  
  
@@ -97,7 +97,8 @@ END ; -- end of package BODY
 /
 
 
--- test 
+-- test (launch next commands in Oracle SQL Developer)
+
 EXECUTE pac_anonymization.p_change_family_name
 
 SELECT * FROM studs_feaa_initial ORDER BY 1 ;

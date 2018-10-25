@@ -157,7 +157,7 @@ END pac_admission_4;
 
 
 
--- test 
+-- test (launch next commands in Oracle SQL Developer)
 EXECUTE pac_admission_4.p_admission_nt
 
 SELECT * FROM applicants 

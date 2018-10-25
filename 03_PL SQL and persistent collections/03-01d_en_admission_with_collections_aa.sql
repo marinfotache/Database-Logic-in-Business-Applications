@@ -313,17 +313,18 @@ END ; -- package body
 /
 
 
--- test 
+-- test (launch next commands in Oracle SQL Developer)
+
 EXECUTE pac_admission_3.p_admission_aa_1
 
 SELECT * FROM applicants 
 ORDER BY grades_avg * 0.6 + dissertation_avg * 0.4 DESC, grades_avg DESC 
 /
+
 SELECT * FROM master_progs 
 /
 
 
--- test 
 EXECUTE pac_admission_3.p_admission_aa_2
 
 SELECT * FROM applicants 

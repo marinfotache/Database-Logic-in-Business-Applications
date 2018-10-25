@@ -12,7 +12,7 @@ which are initialized by BULK COLLECT clause.
 
 */
 
--- before that we make a copy of the table (to test the further procedures)
+-- before that we make a copy of the table (used for testing further procedures)
 
 -- CREATE TABLE studs_feaa_anonim AS SELECT * FROM studs_feaa ;
 
@@ -103,15 +103,17 @@ END ; -- end of package BODY
 /
 
 
--- test 
+-- test (launch next commands in Oracle SQL Developer)
+
 EXECUTE pac_anonymization_2.p_change_family_name
+
 EXECUTE pac_anonymization_2.p_change_first_name
 
 SELECT * FROM studs_feaa ORDER BY 1 ;
+
 SELECT * FROM studs_feaa_anonim ORDER BY stud_id ;
 
-
-alter table studs_feaa_anonim drop column full_name ;
+-- alter table studs_feaa_anonim drop column full_name ;
 
 
 
