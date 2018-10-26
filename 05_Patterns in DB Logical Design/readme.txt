@@ -1,7 +1,7 @@
 
 The zip files contain the archive associated to an ODM model.
 
-1) On your computer we can use the main ODM directory created for section `04` or we can create another directory.
+1) On your computer we can use the same main ODM directory created in section `04_DB Logical Design__Denormalization` or you can create another directory.
 
 2) Download and copy in this (new or the same) directory the following files:
 - `defaultdomains.xml`
