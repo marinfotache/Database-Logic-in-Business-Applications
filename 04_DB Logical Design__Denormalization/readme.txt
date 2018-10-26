@@ -1,6 +1,6 @@
 Start with the presentations (`.pptx` files) that contain explanations about model requirements.
 
-E-R and (most of) Relational diagrams of every ODM model are uploaded as zip files.
+E-R and (most of) Relational diagrams of every ODM model are uploaded as a zip file.
 
 For opening and editing the diagrams, please following steps:
 
