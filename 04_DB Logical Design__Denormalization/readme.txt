@@ -1,4 +1,8 @@
-The zip files contain the archive associated to an ODM model.
+Start with the presentations (`.pptx` files) that contain explanations about model requirements.
+
+E-R and (most of) Relational diagrams of every ODM model are uploaded as zip files.
+
+For opening and editing the diagrams, please following steps:
 
 1) On your computer please create a main ODM directory.
 
@@ -9,10 +13,11 @@ The zip files contain the archive associated to an ODM model.
 3) In Oracle Data Modeler, go to `Preferences` -> `Data Modeler` and set first four directories on
   your main ODM directory.
 
-4) All the models are zipped (since they have large numbers of files).
-Each model will be downloaded into the main ODM directory and unzipped.
+For each model of interest:
 
-5) Alfter unzipping, open the model by choosing the .dmd file
+4) Downloaded the associated `.zip` file into the local main ODM directory and unzipped it.
+
+5) Alfter unzipping, open the model with Oracle Data Modeler by choosing the `.dmd` file
 
 
 
