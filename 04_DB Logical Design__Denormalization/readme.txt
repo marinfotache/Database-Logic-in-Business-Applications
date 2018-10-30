@@ -2,7 +2,7 @@ Start with the presentations (`.pptx` files) that contain explanations about mod
 
 E-R and (most of) Relational diagrams of every ODM model are uploaded as a zip file.
 
-For opening and editing the diagrams, please following steps:
+For opening and editing the diagrams, please follow the steps below:
 
 1) On your computer please create a main ODM directory.
 
