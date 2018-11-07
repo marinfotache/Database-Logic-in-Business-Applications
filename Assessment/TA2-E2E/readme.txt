@@ -1,1 +1,1 @@
-These are the scripts for database setup.
+These are the scripts for 2nd Team Assessment database setup.
