@@ -11,6 +11,7 @@ DROP TABLE CARTI_RO CASCADE CONSTRAINTS ;
    
 REM INSERTING into CARTI_RO
 SET DEFINE OFF;
+
 Insert into CARTI_RO (TITLU,ISBN,EDITURA,COUNTRY,AN_PUBLICARE,NR_PAGINI) values ('Reţele locale de calculatoare: proiectare şi administrare (ediția a II-a)','973-46-0493-7','SC EDITURA POLIROM SA, Iași','Romania','2006','312');
 Insert into CARTI_RO (TITLU,ISBN,EDITURA,COUNTRY,AN_PUBLICARE,NR_PAGINI) values ('Sinteze de psihopedagogie specială. Ghid pentru concursuri şi obţinerea gradelor didactice','978-973-46-3386-9','Polirom','Romania','2013','528');
 Insert into CARTI_RO (TITLU,ISBN,EDITURA,COUNTRY,AN_PUBLICARE,NR_PAGINI) values ('Logica și filosofia religiei. O re-lectură a prelegerilor hegeliene','978-973-27-1961-9','Editura Academiei Romane','Romania','2010','335');

@@ -8,6 +8,8 @@
 	GRUP_VENIT VARCHAR(255)
    ) ;
 
+SET DEFINE OFF;
+
 
 INSERT INTO TARI (COD_TARA,NUME_TARA,REGIUNE,GRUP_VENIT) values ('ABW','Aruba','Latin America and  Caribbean','High income');
 INSERT INTO TARI (COD_TARA,NUME_TARA,REGIUNE,GRUP_VENIT) values ('AFG','Afghanistan','South Asia','Low income');

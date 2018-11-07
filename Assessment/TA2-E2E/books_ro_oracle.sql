@@ -11,6 +11,9 @@ DROP TABLE BOOKS_RO CASCADE CONSTRAINTS ;
    
 REM INSERTING into BOOKS_RO
 
+SET DEFINE OFF;
+
+
 Insert into BOOKS_RO (TITLE,ISBN,PUBLISHER_NAME,COUNTRY,RELEASE_YEAR,N_OF_PAGES) values ('Reţele locale de calculatoare: proiectare şi administrare (ediția a II-a)','973-46-0493-7','SC PUBLISHER_NAME POLIROM SA, Iași','Romania','2006','312');
 Insert into BOOKS_RO (TITLE,ISBN,PUBLISHER_NAME,COUNTRY,RELEASE_YEAR,N_OF_PAGES) values ('Sinteze de psihopedagogie specială. Ghid pentru concursuri şi obţinerea gradelor didactice','978-973-46-3386-9','Polirom','Romania','2013','528');
 Insert into BOOKS_RO (TITLE,ISBN,PUBLISHER_NAME,COUNTRY,RELEASE_YEAR,N_OF_PAGES) values ('Logica și filosofia religiei. O re-lectură a prelegerilor hegeliene','978-973-27-1961-9','PUBLISHER_NAME Academiei Romane','Romania','2010','335');
