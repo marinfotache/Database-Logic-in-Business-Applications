@@ -56,7 +56,7 @@ WHERE LOWER(SEQUENCE_NAME) = 'seq__product_id' ;
 
 
 --================================================================================
--- 							Using the sequence in INSERTs           		   ---
+--                          Using the sequence in INSERTs                      ---
 --================================================================================
 
 -- clean up table "products"
