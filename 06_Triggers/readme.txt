@@ -14,6 +14,6 @@ Prerequisites:
 2. Execute first two scripts (`06-00-1...` and `06-00-2`) that set up the database tables (tables and constraints) by copying and execute them in Oracle SQL Developer.
 
 
-Starting with `06-01a` we strongly recommend to follow the scripts statement by statement, and execute suggested pieces of code and statements as suggested.
+Starting with `06-01a` we strongly recommend to follow the scripts statement by statement, and execute pieces of code and statements as suggested.
 Do not forget to activate `DBMS Output` tab (in Oracle SQL Developer, select `View` from the meniu and then the `Dbms Output` option).
 
