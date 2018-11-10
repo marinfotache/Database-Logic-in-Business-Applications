@@ -15,5 +15,5 @@ Prerequisites:
 
 
 Starting with `06-01a` we strongly recommend to follow the scripts statement by statement, and execute suggested pieces of code and statements as suggested.
-Do not forget to activate `DBMS Output` tab (in Oracle SQL Developer, select `View` from the meniu and then Dbms Output` option).
+Do not forget to activate `DBMS Output` tab (in Oracle SQL Developer, select `View` from the meniu and then the `Dbms Output` option).
 
