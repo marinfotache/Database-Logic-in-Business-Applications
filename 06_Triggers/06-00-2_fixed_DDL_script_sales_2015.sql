@@ -224,7 +224,7 @@ CREATE
     pers_genre CHAR (1) DEFAULT 'B' NOT NULL ,
     post_code  CHAR (6)    NULL ,
     home_phone   CHAR (10) NULL ,
-    office_phone CHAR (10) NULL , -- here we fix "phone"
+    office_phone CHAR (10) NULL , 
     mobile_phone CHAR (10) NULL ,
     pers_email   VARCHAR2 (50) NULL ,
     office_email VARCHAR2 (75) NULL

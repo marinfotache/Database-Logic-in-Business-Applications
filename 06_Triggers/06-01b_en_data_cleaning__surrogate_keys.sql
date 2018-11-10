@@ -104,6 +104,8 @@ SELECT * FROM counties ;
 
 
 --================================================================================
+--                          Triggers for data cleaning                         ---
+--================================================================================
 /* In table "counties" we defined some CHECK constraints for data to be uniformly
     gathered and properly displayed when sorting.
     
@@ -248,7 +250,7 @@ COMMIT ;
 
 --================================================================================
 /*
-                           First problem with surrogate keys
+                           First problem with the surrogate keys
     
     The solution sequence-trigger for dealing with surrogate keys has, 
     as main weakness, the possibility of uniqueness violation as a result of an update.
