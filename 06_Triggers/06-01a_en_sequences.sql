@@ -59,7 +59,7 @@ WHERE LOWER(SEQUENCE_NAME) = 'seq__product_id' ;
 --                          Using the sequence in INSERTs                      ---
 --================================================================================
 
--- clean up table "products"
+-- clean up table PRODUCTS
 DELETE FROM products ;
 COMMIT ;
 
@@ -70,7 +70,7 @@ INSERT INTO products VALUES (seq__product_id.NextVal, 'Produs 1','buc', 'Bauturi
 -- ... `consume` a sequence value
 SELECT seq__product_id.NextVal FROM dual ;
 
--- and insert another row in the table "products" invoking the sequence
+-- and insert another row in the table PRODUCTS invoking the sequence
 INSERT INTO products VALUES (seq__product_id.NextVal, 'Produs 2','kg', 'Bere', 0.09)  ;
 
 
@@ -91,18 +91,18 @@ ROLLBACK ;
 ----------------------------------------------------------------------------------
 -- now, repeat the insertion ...
 
---   insert one row in the table "products" invoking the sequence ...
+--   insert one row in the table PRODUCTS invoking the sequence ...
 INSERT INTO products VALUES (seq__product_id.NextVal, 'Produs 1','buc', 'Bauturi racoritoare', .19)  ;
 
 -- ... `consume` a sequence value
 SELECT seq__product_id.NextVal FROM dual ;
 
--- and insert another row in the table "products" invoking the sequence
+-- and insert another row in the table PRODUCTS invoking the sequence
 INSERT INTO products VALUES (seq__product_id.NextVal, 'Produs 2','kg', 'Bere', 0.09)  ;
 
 
 --------------------------------------------------------------------------------------------
--- check the new record in "products" (notice the inserted values for "products.product_id"
+-- check the new record in PRODUCTS (notice the inserted values for "products.product_id"
 SELECT * FROM products ;
 
 --------------------------------------------------------------------------------------------
@@ -115,7 +115,7 @@ WHERE LOWER(SEQUENCE_NAME) = 'seq__product_id' ;
 
 
 --------------------------------------------------------------------------------------------
--- if we want to be sure that all initial records in table "products" we'll
+-- if we want to be sure that all initial records in table PRODUCTS we'll
 -- have for "product_id" consecutive values taken the sequence we have to
 -- drop and re-create the sequence, as follows:
 

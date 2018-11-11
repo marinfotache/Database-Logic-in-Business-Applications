@@ -82,7 +82,7 @@ SELECT * FROM counties ;
 ROLLBACK ;
 SELECT * FROM counties ;
 
--- now insert all initial record in table "counties" in 
+-- now insert all initial record in table COUNTIES in 
 -- a single statement
 INSERT INTO counties 
 	SELECT 'IS', 'Iasi', 'Moldova' FROM dual UNION
@@ -106,7 +106,7 @@ SELECT * FROM counties ;
 --================================================================================
 --                          Triggers for data cleaning                         ---
 --================================================================================
-/* In table "counties" we defined some CHECK constraints for data to be uniformly
+/* In table COUNTIES we defined some CHECK constraints for data to be uniformly
     gathered and properly displayed when sorting.
     
     We can prevent some constraint violation by cleaning data on-the-fly, using
@@ -156,7 +156,7 @@ DROP TRIGGER trg_counties_ins_4 ;
 
 
 --================================================================
--- We continue with table "postal_codes"  
+-- We continue with table POSTAL_CODES  
 -----------------------------------------------------------
 CREATE OR REPLACE TRIGGER trg_postal_ins_upd_bef_row
 	BEFORE INSERT OR UPDATE ON postal_codes FOR EACH ROW
@@ -195,7 +195,7 @@ COMMIT ;
 -- Example of using sequence "seq__cust_id"
 
 
--- row level - before - insert trigger for table "customers" takes "cust_id"
+-- row level - before - insert trigger for table CUSTOMERS takes "cust_id"
 --    values from the above created sequence
 -----------------------------------------------------------
 CREATE OR REPLACE TRIGGER trg_customers_ins_1_bef_row
@@ -496,7 +496,7 @@ UPDATE customers SET cust_id = 1012 WHERE cust_id = 1011 ;
 -- previously, the next insert would violate the primary key; the trigger new version
 -- will avoid it (the new customer must have not `1012` but `1013` as cust_id)
 INSERT INTO customers 
-	VALUES (99, 'A Even Newer Client SRL', 'R_newer', 'The address of A Even Newer Client SRL','701900', 
+	VALUES (99, 'An Even Newer Client SRL', 'R_newer', 'The address of A Even Newer Client SRL','701900', 
 	    '0744121012', 'a.newer.client@yahoo.ro', 123451002) ;
 COMMIT ;
 
@@ -525,14 +525,14 @@ SELECT * FROM customers ;
 
 --================================================================================
 --  There are two basic solutions:
-    A. Every insert in a child table of "customers" table will have a sub-query
+    A. Every insert in a child table of CUSTOMERS table will have a sub-query
        for getting customer's id based on the customer name
     B. Create a function that gets a customer name and returns the customer id;
         this function will be used in each insert into a child table
 */
 
 --================================================================================
---    A. Every insert in a child table of "customers" table will have a sub-query
+--    A. Every insert in a child table of CUSTOMERS table will have a sub-query
 --       for getting customers id based on customer name
 
 INSERT INTO invoices VALUES (1, 1111, DATE'2013-08-01', 
@@ -571,7 +571,7 @@ END ;
 END ;
 /
 
--- this function will be used in every row insert in "invoices"
+-- this function will be used in every row insert in INVOICES
 INSERT INTO invoices VALUES (2, 1112, DATE'2013-08-01', pac_sales.f_cust_id('Client E SRL'),
     NULL, 0, 0, 0, 0, 0, 'N', NULL  ) ;  
 -- check
@@ -584,7 +584,7 @@ COMMIT ;
 --================================================================================
 --    Create similar triggers for all the surrogate keys in the database
 --    Each time we'll define a sequence and then a trigger, as in the case of 
---      table "customers"
+--      table CUSTOMERS
 */
 
 --================================================================================
