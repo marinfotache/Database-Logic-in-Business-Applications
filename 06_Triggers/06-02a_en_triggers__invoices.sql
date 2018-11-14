@@ -13,6 +13,14 @@ https://github.com/marinfotache/Database-Logic-in-Business-Applications/blob/mas
 https://github.com/marinfotache/Database-Logic-in-Business-Applications/blob/master/06_Triggers/06-01c_en_cascade_updates.sql
 
 
+
+
+See also the `sales` database schema and denormalized attributes in presentation:
+
+https://github.com/marinfotache/Database-Logic-in-Business-Applications/blob/master/06_Triggers/06-02_en_Triggers%20-%20part%202.pptx
+
+ 
+
 --=====================================================================================
 --      Triggers of table INVOICES will manage the denormalized attributes/tables
 --=====================================================================================
@@ -141,7 +149,8 @@ END ;
 -- we delete it and create separated triggers for insert, update and delete
 --   
 
-DROP TRIGGER trg_invoices_ins_upd_bef_row ;
+DROP TRIGGER trg_invoices_ins_upd_bef_row 
+/
 
 ------------------------------------------------------------------------------------------
 -- Tasks for the INSERT trigger:
@@ -396,10 +405,6 @@ When the year+month of "invoice_date" remains unchanged, just:
 	* update "sales_total" in table CUSTOMER_MONTHLY_STATS
 
 
-
-Note:
-Consider these triggers will properly work when invoices will have ro
-
 */
 ------------------------------------------------------------------------------------------
 -- first UPDATE trigger for INVOICES: BEFORE-ROW
@@ -414,6 +419,12 @@ END ;
 
 ------------------------------------------------------------------------------------------
 -- second UPDATE trigger for INVOICES: AFTER-ROW
+
+-- this command is necessary for dealing with a compiler error
+ALTER SESSION SET PLSCOPE_SETTINGS = 'IDENTIFIERS:NONE';
+
+
+-- now, the trigger
 CREATE OR REPLACE TRIGGER trg_invoices_upd2
 	AFTER UPDATE ON invoices FOR EACH ROW
 DECLARE
@@ -673,7 +684,7 @@ BEGIN
 
 	            -- * update "customer_monthly_stats.sales"    	            
 			    UPDATE customer_monthly_stats
-    			SET sales = sales - :OLD.invoice_amount
+    			SET sales = sales - :OLD.invoice_amount + :NEW.invoice_amount
 				WHERE year = EXTRACT(YEAR FROM :OLD.invoice_date) AND 
         			month =  EXTRACT(MONTH FROM :OLD.invoice_date) AND cust_id = :OLD.cust_id ;      
     	             
