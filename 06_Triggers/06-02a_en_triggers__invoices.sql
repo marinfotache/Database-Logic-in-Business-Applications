@@ -389,20 +389,59 @@ SELECT * FROM customer_monthly_stats ;
 /*  
 ------------------------------------------------------------------------------------------
 Tasks for the UPDATE triggers of table INVOICES:
-	 * update "customers.current_balance"
- 	 * update denormalized tables MONTHS, CUSTOMER_MONTHLY_STATS, and PRODUCT_MONTHLY_STATS
 
-When "invoice_date" is changed, check if the new month is different from the 
-older one; if so: 
-- in table MONTHS:
-			* decrease "sales_total" with the older "invoice_amount" for the older month 
-			* increase "sales_total" with the newer "invoice_amount" for the newer month; 
-				(do not forget to check there is a record in MONTHS for the new month)  
+	A. test if attribute `invoice_amount` has been changed, but neither `cust_id` nor
+		the year-month of `invoice_date`
+		
+		A.1 if so, then:	
+		 	- update "CUSTOMERS.current_balance"
+		 	- update "MONTHS.sales_total"
+		 	- update "CUSTOMER_MONTHLY_STATS.sales_total"
+		 				
+	  	A.2 if not, do nothing
+
+ 
+ 	B. test if the year-month of `invoice_date` or the `cust_id` were changed 
+ 	
+		B.1 if so, then: 
+			- in table CUSTOMERS:
+				- decrease the `current_balance` with `:OLD.invoice_amount` for `:OLD.cust_id`
+				- increase the `current_balance` with `:NEW.invoice_amount` for `:NEW.cust_id`
+			
+			- in table MONTHS:
+				* decrease `sales_total` with `:OLD.invoice_amount` for the old month 
+				* increase `sales_total" with `:NEW.invoice_amount` for the new month; 
+					(do not forget to check there is a record in MONTHS for the new month)
+					
+			- in table CUSTOMER_MONTHLY_STATS:
+				* decrease `sales_total` with `:OLD.invoice_amount` for the old month and  `:OLD.cust_id`
+				* increase `sales_total` with `:NEW.invoice_amount` for the new month and  `:NEW.cust_id`
+					(do not forget to check there is a record in CUSTOMER_MONTHLY_STATS for 
+						the new month and `:NEW.cust_id`)
+						
+			-- test if the year-month of `invoice_date` was changed 
+			
+				B.1.1 if so, then:	
+			
+					- in table PRODUCT_MONTHLY_STATS, 			
+						* decrease `sales` for all products in `:OLD.invoice_id` for the old month
+						* increase `sales` for all products in `:NEW.invoice_id` for the new month
+
+					
+				B.1.2 of not, do nothing	
+		
+
+			-- if both month and `cust_id` were changed, ..... rec_payments
 
 
-When the year+month of "invoice_date" remains unchanged, just:
-	* update "sales_total" in table MONTHS
-	* update "sales_total" in table CUSTOMER_MONTHLY_STATS
+
+
+	  	B.2 if not, do nothing
+ 
+  
+--  Note: we do not update "refusals_total", and "received_total" with the 
+--          corresponding INVOICES attributes NEW values since refusals and receipts can
+--          occur in other months than the invoice issue month !
 
 
 */
@@ -421,277 +460,183 @@ END ;
 -- second UPDATE trigger for INVOICES: AFTER-ROW
 
 -- this command is necessary for dealing with a compiler error
+--   encountered when creating the next trigger
 ALTER SESSION SET PLSCOPE_SETTINGS = 'IDENTIFIERS:NONE';
 
 
 -- now, the trigger
 CREATE OR REPLACE TRIGGER trg_invoices_upd2
 	AFTER UPDATE ON invoices FOR EACH ROW
-DECLARE
-    v_dummy INTEGER := 0;	
 BEGIN 
 
-    -- A.1 if the invoice month was changed...
-    IF EXTRACT(YEAR FROM :NEW.invoice_date) <> EXTRACT(YEAR FROM :OLD.invoice_date) OR
-			EXTRACT(MONTH FROM :NEW.invoice_date) <> EXTRACT(MONTH FROM :OLD.invoice_date) THEN
-			
-		-- the invoice's amount and VAT must be transferred from the older month to 
-		--	the new month for all three denormalized tables:		
-		--		* MONTHS
-		--      * CUSTOMER_MONTHLY_STATS (also considering the customer has changed)
-		--		* PRODUCT_MONTHLY_STATS 	
-			
-			
-        -- first, in table MONTHS decrease "sales_total" with the corresponding 
-        -- 		INVOICES attribute OLD value
+	--A. test if attribute `invoice_amount` has been changed, but neither `cust_id` nor
+	--	the year and month of `invoice_date`
+	
+ 	IF :NEW.invoice_amount <> :OLD.invoice_amount AND  
+ 			EXTRACT (YEAR FROM :NEW.invoice_date) = EXTRACT (YEAR FROM :OLD.invoice_date) AND
+ 			EXTRACT (MONTH FROM :NEW.invoice_date) = EXTRACT (MONTH FROM :OLD.invoice_date) AND
+ 			:NEW.cust_id = :OLD.cust_id THEN
+ 
+		-- A.1 if so, then:	
+		
+		-- update "CUSTOMERS.current_balance"
+        UPDATE customers 
+		SET current_balance = current_balance + 
+			(:NEW.invoice_amount - :NEW.amount_refused - :NEW.amount_received) -
+			(:OLD.invoice_amount - :OLD.amount_refused - :OLD.amount_received) 
+		WHERE cust_id = :NEW.cust_id ;
+		 	 	
+		-- update "MONTHS.sales_total"
         UPDATE months
-        SET sales_total = sales_total - :OLD.invoice_amount
-        WHERE year = EXTRACT(YEAR FROM :OLD.invoice_date) 
-            AND month =  EXTRACT(MONTH FROM :OLD.invoice_date) ;
-
-        -- ... then, also in table MONTHS, increase "sales_total" with invoice new "invoice_amount"
-        -- 
-        --  Note: we do not update "refusals_total", and "received_total" with the 
-        --          corresponding INVOICES attributes NEW values since refusals and receipts can
-        --          occur in other months than the invoice issue month !
-        
-    	--  before insert, we'll check if table MONTHS has a record for the (new) current month
-	    IF pac_sales_2.f_months (EXTRACT (YEAR FROM :NEW.invoice_date), 
-	            EXTRACT (MONTH FROM :NEW.invoice_date)) = FALSE THEN
-	        INSERT INTO months VALUES (EXTRACT (YEAR FROM :NEW.invoice_date), 
-	            EXTRACT (MONTH FROM :NEW.invoice_date), 0, 0, 0, 0) ;
- 	    END IF ;	
-
-        -- now, the update
-        UPDATE months
-        SET sales_total = sales_total + :NEW.invoice_amount
+        SET sales_total = sales_total + :NEW.invoice_amount - :OLD.invoice_amount
         WHERE year = EXTRACT(YEAR FROM :NEW.invoice_date) 
             AND month =  EXTRACT(MONTH FROM :NEW.invoice_date) ;
 
 
-        -- second, in table CUSTOMER_MONTHLY_STATS decrease "sales"
-        --  with the corresponding INVOICES attribute OLD value
+		-- update "CUSTOMER_MONTHLY_STATS.sales_total"
         UPDATE customer_monthly_stats
-        SET sales = sales - :OLD.invoice_amount
+        SET sales = sales + :NEW.invoice_amount - :OLD.invoice_amount
         WHERE year = EXTRACT(YEAR FROM :OLD.invoice_date) 
             AND month =  EXTRACT(MONTH FROM :OLD.invoice_date) AND 
-            	cust_id = :OLD.cust_id ;
+            	cust_id = :NEW.cust_id ;		
+  			
+	ELSE
+	
+		--  A.2 if not, do nothing
+		NULL ;		
+ 			
+ 	END IF ;
+ 	
 
-        -- increase "customer_monthly_stats.sales" with invoice new "invoice_amount"
-        
-    	--  before insert, we'll check if table MONTHS has a record for the (new) current month
+ 	-- B. test if the year-month of `invoice_date` or the `cust_id` were changed 
+ 	IF EXTRACT (YEAR FROM :NEW.invoice_date) <> EXTRACT (YEAR FROM :OLD.invoice_date) OR
+ 			EXTRACT (MONTH FROM :NEW.invoice_date) <> EXTRACT (MONTH FROM :OLD.invoice_date) OR
+ 			:NEW.cust_id <> :OLD.cust_id THEN
+ 
+		-- B.1 if so, then: 
+		
+		-- in table CUSTOMERS:
+
+		--	- decrease the `current_balance` with `:OLD.invoice_amount` for `:OLD.cust_id`
+	    UPDATE customers 
+		SET current_balance = current_balance - 
+			(:OLD.invoice_amount - :OLD.amount_refused - :OLD.amount_received) 
+		WHERE cust_id = :OLD.cust_id ;
+			
+		--	- increase the `current_balance` with `:NEW.invoice_amount` for `:NEW.cust_id`
+	    UPDATE customers 
+		SET current_balance = current_balance + 
+			(:NEW.invoice_amount - :NEW.amount_refused - :NEW.amount_received) 
+		WHERE cust_id = :NEW.cust_id ;
+			
+			
+		-- in table MONTHS:
+				
+		--	* decrease `sales_total` with `:OLD.invoice_amount` for the old month 
+	    UPDATE months
+    	SET sales_total = sales_total - :OLD.invoice_amount
+        WHERE year = EXTRACT(YEAR FROM :OLD.invoice_date) 
+            	AND month =  EXTRACT(MONTH FROM :OLD.invoice_date) ;
+
+
+		--	* increase `sales_total" with `:NEW.invoice_amount` for the new month; 
+		--		(do not forget to check there is a record in MONTHS for the new month)
+
+	    --  check if table MONTHS has a record for the (new) current month
+	    IF pac_sales_2.f_months (EXTRACT (YEAR FROM :NEW.invoice_date), 
+	     	  	EXTRACT (MONTH FROM :NEW.invoice_date)) = FALSE THEN
+	    	INSERT INTO months VALUES (EXTRACT (YEAR FROM :NEW.invoice_date), 
+	            EXTRACT (MONTH FROM :NEW.invoice_date), :NEW.invoice_amount, 0, 0, 0) ;
+		ELSE
+			-- record exists, so we need to update...
+        	UPDATE months
+        	SET sales_total = sales_total + :NEW.invoice_amount
+        	WHERE year = EXTRACT(YEAR FROM :NEW.invoice_date) 
+            	AND month =  EXTRACT(MONTH FROM :NEW.invoice_date) ;
+ 	    END IF ;	
+			
+					
+		-- in table CUSTOMER_MONTHLY_STATS:
+			
+		-- * decrease `sales_total` with `:OLD.invoice_amount` for the old month and `:OLD.cust_id`
+		UPDATE customer_monthly_stats
+        SET sales = sales - :OLD.invoice_amount
+        WHERE year = EXTRACT(YEAR FROM :OLD.invoice_date) 
+            	AND month =  EXTRACT(MONTH FROM :OLD.invoice_date) AND cust_id = :OLD.cust_id ;
+				
+		-- * increase `sales_total` with `:NEW.invoice_amount` for the new month and  `:NEW.cust_id`
+		--		(do not forget to check there is a record in CUSTOMER_MONTHLY_STATS for 
+		--			the new month and `:NEW.cust_id`)
 	    IF pac_sales_2.f_customer_monthly_stats (:NEW.cust_id,
 	    		EXTRACT (YEAR FROM :NEW.invoice_date), 
 	            EXTRACT (MONTH FROM :NEW.invoice_date)) = FALSE THEN
-	        INSERT INTO customer_monthly_stats VALUES (:NEW.cust_id, EXTRACT (YEAR FROM :NEW.invoice_date), 
-	            EXTRACT (MONTH FROM :NEW.invoice_date), 0, 0, 0, 0) ;
- 	    END IF ;	
-
-        -- now, the update
-        UPDATE customer_monthly_stats
-        SET sales = sales + :NEW.invoice_amount
-        WHERE year = EXTRACT(YEAR FROM :NEW.invoice_date) 
-            AND month =  EXTRACT(MONTH FROM :NEW.invoice_date) AND 
-            	cust_id = :NEW.cust_id ;
-            
-            
-        -- now, the most interesting part (in this trigger):
-        --   update PRODUCT_MONTHLY_STATS, decreasing the product sales for the former month
-        --		and former products,
-        --     and increasing the product sales for the new month and the new products
-        --  (we'll consider the case that not only the month, but also the products might change)
-        
-        -- we'll use (twice) a cursor for the products sold in the current invoice
-        
-        -- ... one for the former month (and former quantities, unit prices and products)
-        FOR rec_row IN (SELECT * FROM invoice_details 
-                WHERE invoice_id = :OLD.invoice_id) LOOP
-            UPDATE product_monthly_stats
-            SET sales = sales - (rec_row.quantity * rec_row.unit_price + rec_row.row_vat) 
-            WHERE year = EXTRACT(YEAR FROM :OLD.invoice_date) 
-                AND month =  EXTRACT(MONTH FROM :OLD.invoice_date)
-                AND product_id = rec_row.product_id ;
-        END LOOP ;        
-
-        -- ... and another one for the new month (and new quantities, unit prices and products)        
-        FOR rec_row IN (SELECT * FROM invoice_details 
-                WHERE invoice_id = :NEW.invoice_id) LOOP
-                
-            IF pac_sales_2.f_product_monthly_stats (rec_row.product_id, 
-                    EXTRACT (YEAR FROM :NEW.invoice_date), 
-                    EXTRACT (MONTH FROM :NEW.invoice_date) ) = FALSE THEN
-	            INSERT INTO product_monthly_stats (YEAR, MONTH, product_id, sales, refusals,
-	                    cancellations) 
-	            VALUES (  EXTRACT (YEAR FROM :NEW.invoice_date), 
-	                    EXTRACT (MONTH FROM :NEW.invoice_date),
-	                    rec_row.product_id, rec_row.quantity * rec_row.unit_price + rec_row.row_vat,
-	                0, 0) ;
-            ELSE 
-                UPDATE product_monthly_stats 
-                SET sales = sales + (rec_row.quantity * rec_row.unit_price + rec_row.row_vat) 
-                WHERE year = EXTRACT(YEAR FROM :NEW.invoice_date) 
-                    AND month =  EXTRACT(MONTH FROM :NEW.invoice_date)
-                        AND product_id = rec_row.product_id ;
-            END IF ;            
-        END LOOP ;        
-                            
-    ELSE
-    	
-    	-- A.2 here (this point will be reached if) the invoice month has not been changed 
-    	
-    	-- we'll test if the invoice's customer was changed
-    
- 		IF :NEW.cust_id <> :OLD.cust_id THEN
-    	
-    		-- A.2.1 here the invoice month is unchanged, but the invoice customer was changed!
-    		
-	        -- ... decrease the balance for the former customer
-    	    UPDATE customers 
-			SET current_balance = current_balance - (:OLD.invoice_amount - :OLD.amount_refused
-            	- :OLD.amount_received) WHERE  cust_id = :OLD.cust_id ;
-        	-- ... increase the balance for the NEW customer     
-        	UPDATE customers 
-			SET current_balance = current_balance + (:NEW.invoice_amount - :NEW.amount_refused
-            	- :NEW.amount_received) WHERE cust_id = :NEW.cust_id ;
-    		
-    		
-    		-- ... transfer the invoice amount from the old to the new customer in table 
-    		--   CUSTOMER_MONTHLY_STATS
-
-		    -- decrease the old values for the old customer and the old month
-    		UPDATE customer_monthly_stats
-    		SET sales = sales - :OLD.invoice_amount
- 		    WHERE year = EXTRACT(YEAR FROM :OLD.invoice_date) AND 
-        		month =  EXTRACT(MONTH FROM :OLD.invoice_date) AND cust_id = :OLD.cust_id ;
-
-		    -- increase the new values for the new customer and the new month
-			IF pac_sales_2.f_customer_monthly_stats (:NEW.cust_id, 
-	        		EXTRACT (YEAR FROM :NEW.invoice_date), EXTRACT (MONTH FROM :NEW.invoice_date)) = FALSE THEN
-	    		INSERT INTO customer_monthly_stats VALUES (:NEW.cust_id, 
-	        		EXTRACT (YEAR FROM :NEW.invoice_date), EXTRACT (MONTH FROM :NEW.invoice_date),
-	        		0, 0, 0, 0) ;
- 			END IF ;	    
+	    	INSERT INTO customer_monthly_stats VALUES (:NEW.cust_id, EXTRACT (YEAR FROM :NEW.invoice_date), 
+	            EXTRACT (MONTH FROM :NEW.invoice_date), :NEW.invoice_amount, 0, 0, 0) ;
+		ELSE 
+		    -- record exists, so we need to update...
 		    UPDATE customer_monthly_stats
-    		SET sales = sales + :NEW.invoice_amount
-		    WHERE year = EXTRACT(YEAR FROM :NEW.invoice_date) AND 
-        		month =  EXTRACT(MONTH FROM :NEW.invoice_date) AND cust_id = :NEW.cust_id ;
-    		
-    		 		
-    		
-			-- we are not done yet!    		
-    		-- we can experience a `nightmarish` situation related to receipts:
- 	        --  an invoice was issued in September 2013 (influencing values in tables
- 	        --		MONTHS and CUSTOMER_MONTHLY_STATS for September 2013), 
- 	        --  then partially paid in October 2013 (also influencing values in tables
- 	        --		MONTHS and CUSTOMER_MONTHLY_STATS for October 2013 );
-        	--   in November, surprise! we discover that the invoice customer was wrongly specified!!!
-        
-        
-        	-- Solution:
-        	-- as the invoice's customer was changed (not a very realistic situation, to be fair),
-        	--   we will loop through:
-        	-- 		* all the invoice payments, and, depending on `RECEIPTS.receipt_date`,
-        	--   			we'll update  CUSTOMER_MONTHLY_STATS. 
-        	-- 		* all the invoice refusals, and, depending on `REFUSAL.refusal_dt`,
-        	--   			we'll update  CUSTOMER_MONTHLY_STATS.
-        	-- 		* all the invoice cancellations (at most one cancellation per invoice), and, 
-        	-- 				depending on `cancelled_invoices.cancellation_dt`,
-        	--   			we'll update  CUSTOMER_MONTHLY_STATS.
+        	SET sales = sales + :NEW.invoice_amount
+        	WHERE year = EXTRACT(YEAR FROM :NEW.invoice_date) 
+            	AND month =  EXTRACT(MONTH FROM :NEW.invoice_date) AND 
+            			cust_id = :NEW.cust_id ;	
+		END IF ;	
+			
+		
+		
+		-- test if the year-month of `invoice_date` was changed 
 
-        	
-        	-- we load in a cursor all the payments for the current invoice
-        	FOR rec_payments IN (SELECT * FROM receipt_details NATURAL JOIN receipts
-        		WHERE invoice_id = :NEW.invoice_id ORDER BY receipt_date) LOOP
-        		
-        		-- discharge the payment from the former customer
-        		UPDATE customer_monthly_stats
-        		SET received = received - rec_payments.amount
-        		WHERE cust_id = :OLD.cust_id AND year = EXTRACT (YEAR FROM rec_payments.receipt_date) AND 
-        			month = EXTRACT (MONTH FROM rec_payments.receipt_date) ;
-        			 
-        		-- charge the payment to the new customer
-        		UPDATE customer_monthly_stats
-        		SET received = received + rec_payments.amount
-        		WHERE cust_id = :NEW.cust_id AND year = EXTRACT (YEAR FROM rec_payments.receipt_date) AND 
-        			month = EXTRACT (MONTH FROM rec_payments.receipt_date) ;
+		IF EXTRACT (YEAR FROM :NEW.invoice_date) <> EXTRACT (YEAR FROM :OLD.invoice_date) OR
+ 				EXTRACT (MONTH FROM :NEW.invoice_date) <> EXTRACT (MONTH FROM :OLD.invoice_date) THEN 
+			
+			-- 	B.1.1 if so, then:	
+			
+			--		- in table PRODUCT_MONTHLY_STATS, 			
+			--			* decrease `sales` for all products in `:OLD.invoice_id` for the old month
+	        -- we'll use a cursor for the products sold in the invoice
+    	    FOR rec_row IN (SELECT * FROM invoice_details 
+                		WHERE invoice_id = :OLD.invoice_id) LOOP
+            	UPDATE product_monthly_stats
+            	SET sales = sales - (rec_row.quantity * rec_row.unit_price + rec_row.row_vat) 
+            	WHERE year = EXTRACT(YEAR FROM :OLD.invoice_date) 
+                	AND month =  EXTRACT(MONTH FROM :OLD.invoice_date)
+                	AND product_id = rec_row.product_id ;
+        	END LOOP ;        
+						
+						
+			--		* increase `sales` for all products in `:NEW.invoice_id` for the new month
+	        FOR rec_row IN (SELECT * FROM invoice_details 
+    	            WHERE invoice_id = :NEW.invoice_id) LOOP 
+	            -- check if the record exists    
+    	        IF pac_sales_2.f_product_monthly_stats (rec_row.product_id, 
+        	            EXTRACT (YEAR FROM :NEW.invoice_date), 
+            	        EXTRACT (MONTH FROM :NEW.invoice_date) ) = FALSE THEN
+	            	INSERT INTO product_monthly_stats (YEAR, MONTH, product_id, sales, refusals,
+	                	    cancellations) 
+	            		VALUES (  EXTRACT (YEAR FROM :NEW.invoice_date), 
+	                    	EXTRACT (MONTH FROM :NEW.invoice_date),
+	                    	rec_row.product_id, rec_row.quantity * rec_row.unit_price + rec_row.row_vat,
+	                		0, 0) ;
+            	ELSE 
+                	UPDATE product_monthly_stats 
+                	SET sales = sales + (rec_row.quantity * rec_row.unit_price + rec_row.row_vat) 
+                	WHERE year = EXTRACT(YEAR FROM :NEW.invoice_date) 
+                    	AND month =  EXTRACT(MONTH FROM :NEW.invoice_date)
+                        	AND product_id = rec_row.product_id ;
+            	END IF ;            
         	END LOOP ;
+        	        
+		ELSE
+			-- B.1.2 of not, do nothing	
+			NULL ;
+		END IF ;
+	
+	ELSE
+	
+		--  B.2 if not, do nothing
+		NULL ;		
+ 			
+ 	END IF ;
 
-
-        	-- we load in a cursor all the refusals for the current invoice
-        	FOR rec_refusals IN (SELECT * FROM refusals
-        		WHERE invoice_id = :NEW.invoice_id ORDER BY refusal_dt) LOOP
-        		
-        		-- discharge the refusal from the former customer
-        		UPDATE customer_monthly_stats
-        		SET refusals = refusals - rec_refusals.refusal_amount
-        		WHERE cust_id = :OLD.cust_id AND year = EXTRACT (YEAR FROM rec_refusals.refusal_dt) AND 
-        			month = EXTRACT (MONTH FROM rec_refusals.refusal_dt) ;
-        			 
-        		-- charge the payment to the new customer
-        		UPDATE customer_monthly_stats
-        		SET refusals = refusals + rec_refusals.refusal_amount
-        		WHERE cust_id = :NEW.cust_id AND year = EXTRACT (YEAR FROM rec_refusals.refusal_dt) AND 
-        			month = EXTRACT (MONTH FROM rec_refusals.refusal_dt) ;
-        	END LOOP ;
-
-
-        	-- we load in a cursor all the cancellation (actually there is no more 
-        	--    than one cancellation per invoice) for the current invoice
-        	FOR rec_cancel IN (SELECT * FROM cancelled_invoices NATURAL JOIN invoices
-        		WHERE invoice_id = :NEW.invoice_id) LOOP
-        		
-        		-- discharge all the invoice amount (that means invoice cancellation) from the former customer
-        		UPDATE customer_monthly_stats
-        		SET cancellations = cancellations - rec_cancel.invoice_amount
-        		WHERE cust_id = :OLD.cust_id AND year = EXTRACT (YEAR FROM rec_cancel.cancellation_dt) AND 
-        			month = EXTRACT (MONTH FROM rec_cancel.cancellation_dt) ;
-        			 
-        		-- charge all the invoice amount to the new customer
-        		UPDATE customer_monthly_stats
-        		SET cancellations = cancellations + rec_cancel.invoice_amount
-        		WHERE cust_id = :NEW.cust_id AND year = EXTRACT (YEAR FROM rec_cancel.cancellation_dt) AND 
-        			month = EXTRACT (MONTH FROM rec_cancel.cancellation_dt) ;
-        	END LOOP ;
-        
-        ELSE
-        
-            -- A.2.2 here neither the invoice month nor the customer were changed
-
-			-- so, we check of the invoice amount was changed
-
-	        IF COALESCE(:NEW.invoice_amount,0) <> COALESCE(:OLD.invoice_amount,0) THEN
-      	          
-	            -- A.2.2.1 here neither the invoice month nor the customer were changed,
-	            --   but the invoice amount
-	            
-	            -- to do:
-	            -- * update "customers.current_balance"
-	            -- * update "months.sales_total"
-	            -- * update "customer_monthly_stats.sales"
-
-				
-				-- * update "customers.current_balance"
-				UPDATE customers 
-        		SET current_balance = current_balance - :OLD.invoice_amount + :NEW.invoice_amount
-		        WHERE cust_id = :NEW.cust_id ;      	          
-
-
-	            -- * update "months.sales_total"      	          
-            	UPDATE months
-            	SET sales_total = sales_total - :OLD.invoice_amount + :NEW.invoice_amount
-	            WHERE year = EXTRACT(YEAR FROM :NEW.invoice_date) 
-    	            AND month =  EXTRACT(MONTH FROM :NEW.invoice_date) ; 
-
-	            -- * update "customer_monthly_stats.sales"    	            
-			    UPDATE customer_monthly_stats
-    			SET sales = sales - :OLD.invoice_amount + :NEW.invoice_amount
-				WHERE year = EXTRACT(YEAR FROM :OLD.invoice_date) AND 
-        			month =  EXTRACT(MONTH FROM :OLD.invoice_date) AND cust_id = :OLD.cust_id ;      
-    	             
-			END IF ;			
-            
-        END IF ;
-    END IF ;        
 END ;
 /
 

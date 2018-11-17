@@ -61,13 +61,6 @@ ALTER TABLE months ADD CONSTRAINT ck_months_month CHECK (
 	month BETWEEN  1 AND 12) ;
 
 
--- customer_monthly_stats
-ALTER TABLE customer_monthly_stats ADD CONSTRAINT ck_cms_sales_refus CHECK ( 
-	sales >= refusals) ;
-ALTER TABLE customer_monthly_stats ADD CONSTRAINT ck_cms_sales_cancel CHECK ( 
-	sales >= cancellations) ;
-
-
 -- current_contacts
 ALTER TABLE current_contacts ADD CONSTRAINT ck_cc_pos CHECK ( 
 	SUBSTR(position,1,1) = UPPER(SUBSTR(position,1,1))) ;
@@ -87,12 +80,6 @@ ALTER TABLE products ADD CONSTRAINT ck_prod_name CHECK (
 ALTER TABLE products ADD CONSTRAINT ck_prod_group CHECK ( 
 	SUBSTR(group_,1,1) = UPPER(SUBSTR(group_,1,1))) ;
 
-
--- product_monthly_stats
-ALTER TABLE product_monthly_stats ADD CONSTRAINT ck_pms_sales_refus CHECK ( 
-	sales >= refusals) ;
-ALTER TABLE product_monthly_stats ADD CONSTRAINT ck_pms_sales_cancel CHECK ( 
-	sales >= cancellations) ;
 
 
 -- invoices

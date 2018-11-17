@@ -8,9 +8,13 @@ https://github.com/marinfotache/Database-Logic-in-Business-Applications/blob/mas
 
 */
 
-
+DELETE FROM product_monthly_stats ;
+DELETE FROM customer_monthly_stats ;
+DELETE FROM months ;
+DELETE FROM invoice_details ;
 DELETE FROM invoices ;
 DELETE FROM customers ;
+DELETE FROM people ;
 DELETE FROM postal_codes ;
 DELETE FROM counties ;
 COMMIT ;
@@ -119,9 +123,11 @@ WHERE LOWER(SEQUENCE_NAME) = 'seq__product_id' ;
 -- have for "product_id" consecutive values taken the sequence we have to
 -- drop and re-create the sequence, as follows:
 
-DROP SEQUENCE seq__product_id ;
+DROP SEQUENCE seq__product_id 
+/
 CREATE SEQUENCE seq__product_id START WITH 1 INCREMENT BY 1 MINVALUE 1
-	MAXVALUE 789789789 NOCACHE ORDER NOCYCLE ;
+	MAXVALUE 789789789 NOCACHE ORDER NOCYCLE 
+/	
 
 DELETE FROM products ;
 INSERT INTO products VALUES (seq__product_id.NextVal, 'Produs 1','buc', 'Tigari', .24)  ;

@@ -23,10 +23,12 @@ https://github.com/marinfotache/Database-Logic-in-Business-Applications/blob/mas
 
 
 --==========================================================================================
---     Triggers for table INVOICE_DETAILS for dealing with denormalized attributes/tables
+--    Triggers for table INVOICE_DETAILS for dealing with denormalized attributes/tables
+--==========================================================================================
+--									I. INSERT triggers
 --==========================================================================================
 
-a. Tasks for the INSERT - BEFORE - ROW trigger
+I.a Tasks for the INSERT - BEFORE - ROW trigger
 
 	When inserting a new record in table INVOICE_DETAILS:
 
@@ -37,7 +39,7 @@ a. Tasks for the INSERT - BEFORE - ROW trigger
 			and "products.current_vat_percent"  
 
 
-b. Tasks for the INSERT - AFTER - ROW trigger
+I.b Tasks for the INSERT - AFTER - ROW trigger
 
 	-- update "invoice_VAT", "invoice_amount", "n_of_rows" in table INVOICES
 
@@ -154,7 +156,7 @@ END ;
 
 /* 
 ------------------------------------------------------------------------------------------
--- 				1. insert trigger for INVOICE_DETAILS: BEFORE-ROW
+-- 				I.a insert trigger for INVOICE_DETAILS: BEFORE-ROW
 ------------------------------------------------------------------------------------------
 	- attribute "invoice_details.row_number" must be determined based on 
 		attribute "invoices.n_of_rows" for current invoice 
@@ -179,7 +181,7 @@ END ;
 
 /*
 ------------------------------------------------------------------------------------------
--- 				1. insert trigger for INVOICE_DETAILS: AFTER - ROW
+-- 				I.b insert trigger for INVOICE_DETAILS: AFTER - ROW
 ------------------------------------------------------------------------------------------
 
 	-- update "invoice_VAT", "invoice_amount", "n_of_rows" in table INVOICES
@@ -477,85 +479,122 @@ FROM check_p_m_s c_p_m_s ;
 
 /*
 
+--==========================================================================================
+--					II. UPDATE triggers for table INVOICE_DETAILS
+--==========================================================================================
 
-						THIS IS AN INTERMEDIARY POINT 
+------------------------------------------------------------------------------------------
+II.a Tasks for the UPDATE - BEFORE - ROW trigger
+
+	When updating a record in table INVOICE_DETAILS:
+
+		- check if at least one value of the following attributes
+			was changed: product_vat, `quantity`, `unit_price`; if so, 
+				UPDATE `row_vat` !
+
+		- check if "invoice_details.row_number"'s values has been changed;
+			for the moment, the rule to be enforced is: "the `row_number`
+			cannot be updated, except for the case when also `invoice_id`
+			was changed!"
 
 
+II.b Tasks for the UPDATE - AFTER - ROW trigger
 
+	II.b.1  Check id the `invoice_id` has been changed...
+	
+		II.b.1.a ...if the "invoice_id" was changed, then...
+		
+			- decrease "invoices.invoice_VAT", "invoices.invoice_amount" and
+	        	 "invoices.n_of_rows" for the OLD invoice
+	   		- increase "invoices.invoice_VAT", "invoices.invoice_amount" and
+	        	 "invoices.n_of_rows" for the NEW invoice
+				
+			-	test if the new invoice date falls in another month
+			
+				II.b.1.a.1 ... if new line appear in a new invoice placed into another month...
+					- decrease "product_monthly_stats.sales" for the OLD product and the old invoice's month
+					- increase "product_monthly_stats.sales" for the NEW product and the new invoice's month; 
+							(do not forget to check if the new product has a corresponding record 
+								in "product_monthly_stats" for  the current invoice's month (if not, add 
+								the record in "product_monthly_stats")
+
+				II.b.1.a.2 ... if new line appear in a new invoice placed in the same month...
+					- do nothing
+
+
+	II.b.1.b if the "invoice_id" was not changed, then...
+		- just update "invoices.invoice_VAT" and 
+		     "invoices.invoice_amount"
+
+
+	II.b.2 Check if the `product_id` has been changed...
+
+	II.b.2.a ...if the `product_id` was changed, then...
+		- decrease "product_monthly_stats.sales" for the OLD product (and the current invoice's month)
+		- increase "product_monthly_stats.sales" for the NEW product (and the current invoice's month), 
+			but do not forget to check if the new product has a corresponding record in "product_monthly_stats"
+			for  the current invoice's month (if not, add the record in "product_monthly_stats")
+
+	II.b.2.b if the `product_id` was not changed, then just update "product_monthly_stats.sales"					
 */
 
 
-
-
-
-
-
-
 ------------------------------------------------------------------------------------------
--- Tasks for the UPDATE triggers of table "invoice_details":
+--							II.a UPDATE - BEFORE - ROW trigger
 
--- * manage the value of "invoice_details.row_number" - BEFORE ROW 
---    ("invoice_details.row_number" must be changed only accompanied by 
---       a change of "invoice_details.invoice_id")
--- * manage the value of "invoice_details.row_VAT" - BEFORE ROW
-
--- * when "invoice_id" is changed...
---      - decrease "invoices.invoice_VAT", "invoices.invoice_amount" and
---         "invoices.n_of_rows" for the OLD invoice
---      - increase "invoices.invoice_VAT", "invoices.invoice_amount" and
---         "invoices.n_of_rows" for the NEW invoice
-
--- * when "invoice_id" is unchanged, just update "invoices.invoice_VAT" and 
---     "invoices.invoice_amount"
-
--- * update denormalized table "product_monthly_stats"
---       -- for the old month and the old product
---       -- for the new month and the new product
-
-
-
-------------------------------------------------------------------------------------------
--- first UPDATE trigger for "invoice_details": BEFORE-ROW
 CREATE OR REPLACE TRIGGER trg_inv_details_upd1
 	BEFORE UPDATE ON invoice_details FOR EACH ROW
-DECLARE	
-    v_row_number invoice_details.row_number%TYPE ;
 BEGIN 
+
     -- "invoice_details.row_number" must be changed only accompanied by 
     --       a change of "invoice_details.invoice_id")
     IF :NEW.row_number <> :OLD.row_number AND :NEW.invoice_id = :OLD.invoice_id THEN
         -- user defined errors must be in the range between -20000 and -20999.
         RAISE_APPLICATION_ERROR (-20010, 
-    		'Value of attribute "row_number" cannot be changed within an invoice!');
+    		'In this version, value of attribute "row_number" cannot be changed within an invoice!');
     END IF ;
 
-    -- compute "row_VAT"
-    :NEW.row_VAT := :NEW.quantity * :NEW.unit_price * 
-        pac_sales_3.f_vat_prod (:NEW.product_id, 
-        	pac_sales_3.f_invoice_date(:NEW.invoice_id)) ;
-
+	-- check if at least one value of the following attributes
+	--		was changed: product_vat, `quantity`, `unit_price`; if so, 
+	--			UPDATE `row_vat` !
+	IF COALESCE(:NEW.quantity,0) <> COALESCE(:OLD.quantity,0) OR
+		COALESCE(:NEW.unit_price,0) <> COALESCE(:OLD.unit_price,0) OR
+		COALESCE( pac_sales_3.f_vat_prod (:NEW.product_id, 
+        	pac_sales_3.f_invoice_date(:NEW.invoice_id)) ,0) <> 
+        			COALESCE( pac_sales_3.f_vat_prod (:OLD.product_id, 
+        				pac_sales_3.f_invoice_date(:OLD.invoice_id)) ,0) THEN
+	    :NEW.row_VAT := :NEW.quantity * :NEW.unit_price * 
+    	    pac_sales_3.f_vat_prod (:NEW.product_id, 
+        		pac_sales_3.f_invoice_date(:NEW.invoice_id)) ;
+	END IF ;
 END ;
 /
 
+	
+
 ------------------------------------------------------------------------------------------
--- second UPDATE trigger for "invoice_details": AFTER-ROW
+--							II.b UPDATE - AFTER - ROW trigger
+------------------------------------------------------------------------------------------
 CREATE OR REPLACE TRIGGER trg_inv_details_upd2
 	AFTER UPDATE ON invoice_details FOR EACH ROW
 DECLARE	
 
 BEGIN 
 
-    -- * when "invoice_id" is changed...
-    --      - decrease "invoices.invoice_VAT", "invoices.invoice_amount" and
-    --         "invoices.n_of_rows" for the OLD invoice
-    --      - increase "invoices.invoice_VAT", "invoices.invoice_amount" and
-    --         "invoices.n_of_rows" for the NEW invoice
+	-- II.b.1  Check id the `invoice_id` has been changed...
+
     IF :NEW.invoice_id <> :OLD.invoice_id THEN
+    	/* 
+    	II.b.1.a ...if the "invoice_id" was changed, then...
+		- decrease "invoices.invoice_VAT", "invoices.invoice_amount" and
+	         "invoices.n_of_rows" for the OLD invoice
+	    - increase "invoices.invoice_VAT", "invoices.invoice_amount" and
+	         "invoices.n_of_rows" for the NEW invoice
+		*/
     
         -- decrease "invoice_VAT", "invoice_amount", "n_of_rows" for the old invoice
         UPDATE invoices
-        SET 
-            invoice_VAT = invoice_VAT - :OLD.row_VAT,
+        SET invoice_VAT = invoice_VAT - :OLD.row_VAT,
             invoice_amount = invoice_amount - 
             	(:OLD.quantity * :OLD.unit_price + :OLD.row_VAT),
             n_of_rows = n_of_rows - 1
@@ -563,59 +602,152 @@ BEGIN
     
         -- increase "invoice_VAT", "invoice_amount", "n_of_rows" for the new invoice
         UPDATE invoices
-        SET 
-            invoice_VAT = invoice_VAT + :NEW.row_VAT,
+        SET invoice_VAT = invoice_VAT + :NEW.row_VAT,
             invoice_amount = invoice_amount + :NEW.quantity * :NEW.unit_price + :NEW.row_VAT,
             n_of_rows = n_of_rows + 1
         WHERE invoice_id = :NEW.invoice_id  ;
         
+        /*
+        	test if the new invoice date falls in another month
+		*/
+		
+		IF EXTRACT (YEAR FROM pac_sales_3.f_invoice_date(:NEW.invoice_id)) <>
+					EXTRACT (YEAR FROM pac_sales_3.f_invoice_date(:OLD.invoice_id)) OR
+				EXTRACT (MONTH FROM pac_sales_3.f_invoice_date(:NEW.invoice_id)) <>
+					EXTRACT (MONTH FROM pac_sales_3.f_invoice_date(:OLD.invoice_id)) THEN							
+		/*	
+				II.b.1.a.1 ... if new line appear in a new invoice placed into another month...
+					- decrease "product_monthly_stats.sales" for the OLD product and the old invoice's month
+					- increase "product_monthly_stats.sales" for the NEW product and the new invoice's month; 
+							(do not forget to check if the new product has a corresponding record 
+								in "product_monthly_stats" for  the current invoice's month (if not, add 
+								the record in "product_monthly_stats")
+		*/
+			UPDATE product_monthly_stats
+			SET  sales = sales - (:OLD.quantity * :OLD.unit_price + :OLD.row_VAT)
+			WHERE year = EXTRACT (YEAR FROM pac_sales_3.f_invoice_date(:OLD.invoice_id)) AND
+	    		month = EXTRACT (MONTH FROM pac_sales_3.f_invoice_date(:OLD.invoice_id)) AND
+	    		product_id = :OLD.product_id ;             
+
+		    --  for the new month and the new product, check if the record exists in 
+		    --   	"product_monthly_stats"
+    		IF pac_sales_2.f_product_monthly_stats (:NEW.product_id, 
+            		EXTRACT (YEAR FROM pac_sales_3.f_invoice_date(:NEW.invoice_id)), 
+            		EXTRACT (MONTH FROM pac_sales_3.f_invoice_date(:NEW.invoice_id))) = FALSE THEN
+            	-- it does not exist, so INSERT
+	    		INSERT INTO product_monthly_stats (YEAR, MONTH, product_id, sales, refusals,
+	            		cancellations) 
+	        		VALUES (  EXTRACT (YEAR FROM pac_sales_3.f_invoice_date(:NEW.invoice_id)), 
+	            		EXTRACT (MONTH FROM pac_sales_3.f_invoice_date(:NEW.invoice_id)),
+	            		:NEW.product_id, :NEW.quantity * :NEW.unit_price + :NEW.row_VAT,
+	            		0, 0) ;
+			ELSE
+				-- record exists, so add the new value of row sales
+		    	UPDATE product_monthly_stats
+		    	SET  sales = sales + :NEW.quantity * :NEW.unit_price + :NEW.row_VAT
+	    		WHERE year = EXTRACT (YEAR FROM pac_sales_3.f_invoice_date(:NEW.invoice_id)) AND
+	        		month = EXTRACT (MONTH FROM pac_sales_3.f_invoice_date(:NEW.invoice_id)) AND
+	        		product_id = :NEW.product_id ;             
+			END IF ;
+		
+		ELSE
+		/*
+				II.b.1.a.2 ... if new line appear in a new invoice placed in the same month...
+					- do nothing
+
+        */
+        	NULL ;
+        END IF ;
+        
+        
+        
+        
     ELSE
-        -- * when "invoice_id" is unchanged, just update "invoices.invoice_VAT" and 
-        --     "invoices.invoice_amount"
+		/*    
+    	II.b.1.b if the "invoice_id" was not changed, then...
+		- just update "invoices.invoice_VAT" and 
+		     "invoices.invoice_amount"
+		*/
         UPDATE invoices
-        SET 
-            invoice_VAT = invoice_VAT - :OLD.row_VAT + :NEW.row_VAT,
+        SET invoice_VAT = invoice_VAT - :OLD.row_VAT + :NEW.row_VAT,
             invoice_amount = invoice_amount 
                 - (:OLD.quantity * :OLD.unit_price + :OLD.row_VAT)
                 + (:NEW.quantity * :NEW.unit_price + :NEW.row_VAT)
         WHERE invoice_id = :NEW.invoice_id  ;   
     END IF ;
     
-    -- * update denormalized table "product_monthly_stats"...
-    --       -- ... for the old month and the old product
-	UPDATE product_monthly_stats
-	SET  sales = sales - (:OLD.quantity * :OLD.unit_price + :OLD.row_VAT)
-	WHERE year = EXTRACT (YEAR FROM pac_sales_3.f_invoice_date(:OLD.invoice_id)) AND
-	    month = EXTRACT (MONTH FROM pac_sales_3.f_invoice_date(:OLD.invoice_id)) AND
-	    product_id = :OLD.product_id ;             
-
-    --       -- for the new month and the new product (before that we'll check
-    --           for a record refering to new product and invoice month
-    IF pac_sales_2.f_product_monthly_stats (:NEW.product_id, 
-            EXTRACT (YEAR FROM pac_sales_3.f_invoice_date(:NEW.invoice_id)), 
-            EXTRACT (MONTH FROM pac_sales_3.f_invoice_date(:NEW.invoice_id))) = FALSE THEN
-	    INSERT INTO product_monthly_stats (YEAR, MONTH, product_id, sales, refusals,
-	            cancellations) 
-	        VALUES (  EXTRACT (YEAR FROM pac_sales_3.f_invoice_date(:NEW.invoice_id)), 
-	            EXTRACT (MONTH FROM pac_sales_3.f_invoice_date(:NEW.invoice_id)),
-	            :NEW.product_id, :NEW.quantity * :NEW.unit_price + :NEW.row_VAT,
-	            0, 0) ;
-	ELSE
-	    -- if the record exists, then update
-	    UPDATE product_monthly_stats
-	    SET  sales = sales + :NEW.quantity * :NEW.unit_price + :NEW.row_VAT
-	    WHERE year = EXTRACT (YEAR FROM pac_sales_3.f_invoice_date(:NEW.invoice_id)) AND
-	        month = EXTRACT (MONTH FROM pac_sales_3.f_invoice_date(:NEW.invoice_id)) AND
-	        product_id = :NEW.product_id ;             
-	END IF ;	
     
+
+	-- II.b.2 Check if the `product_id` has been changed...
+	IF :NEW.product_id <> :OLD.product_id THEN 
+		/*
+		II.b.2.a ...if the `product_id` was changed, then...
+			- decrease "product_monthly_stats.sales" for the OLD product (and the current invoice's month)
+			- increase "product_monthly_stats.sales" for the NEW product (and the current invoice's month), 
+				but do not forget to check if the new product has a corresponding record in "product_monthly_stats"
+				for  the current invoice's month (if not, add the record in "product_monthly_stats")
+		*/
+		UPDATE product_monthly_stats
+		SET  sales = sales - (:OLD.quantity * :OLD.unit_price + :OLD.row_VAT)
+		WHERE year = EXTRACT (YEAR FROM pac_sales_3.f_invoice_date(:OLD.invoice_id)) AND
+	    	month = EXTRACT (MONTH FROM pac_sales_3.f_invoice_date(:OLD.invoice_id)) AND
+	    	product_id = :OLD.product_id ;             
+
+	    --  for the new month and the new product, check if the record exists in 
+	    --   	"product_monthly_stats"
+    	IF pac_sales_2.f_product_monthly_stats (:NEW.product_id, 
+            	EXTRACT (YEAR FROM pac_sales_3.f_invoice_date(:NEW.invoice_id)), 
+            	EXTRACT (MONTH FROM pac_sales_3.f_invoice_date(:NEW.invoice_id))) = FALSE THEN
+            -- it does not exist, so INSERT
+	    	INSERT INTO product_monthly_stats (YEAR, MONTH, product_id, sales, refusals,
+	            	cancellations) 
+	        	VALUES (  EXTRACT (YEAR FROM pac_sales_3.f_invoice_date(:NEW.invoice_id)), 
+	            	EXTRACT (MONTH FROM pac_sales_3.f_invoice_date(:NEW.invoice_id)),
+	            	:NEW.product_id, :NEW.quantity * :NEW.unit_price + :NEW.row_VAT,
+	            	0, 0) ;
+		ELSE
+			-- record exists, so add the new value of row sales
+		    UPDATE product_monthly_stats
+		    SET  sales = sales + :NEW.quantity * :NEW.unit_price + :NEW.row_VAT
+	    	WHERE year = EXTRACT (YEAR FROM pac_sales_3.f_invoice_date(:NEW.invoice_id)) AND
+	        	month = EXTRACT (MONTH FROM pac_sales_3.f_invoice_date(:NEW.invoice_id)) AND
+	        	product_id = :NEW.product_id ;             
+		END IF ;
+
+	ELSE
+
+
+		/*
+		II.b.2.b if the `product_id` was not changed, then just update "product_monthly_stats.sales"					
+    	*/
+    
+		-- check if at least one value of the following attributes
+		--		was changed: product_vat, `quantity`, `unit_price`
+		IF COALESCE(:NEW.quantity,0) <> COALESCE(:OLD.quantity,0) OR
+			COALESCE(:NEW.unit_price,0) <> COALESCE(:OLD.unit_price,0) OR
+			COALESCE( pac_sales_3.f_vat_prod (:NEW.product_id, 
+        		pac_sales_3.f_invoice_date(:NEW.invoice_id)) ,0) <> 
+        			COALESCE( pac_sales_3.f_vat_prod (:OLD.product_id, 
+        				pac_sales_3.f_invoice_date(:OLD.invoice_id)) ,0) THEN
+    
+ 		    -- * update denormalized table "product_monthly_stats"...
+			UPDATE product_monthly_stats
+			SET  sales = sales - (:OLD.quantity * :OLD.unit_price + :OLD.row_VAT) +
+				(:NEW.quantity * :NEW.unit_price + :NEW.row_VAT)
+			WHERE year = EXTRACT (YEAR FROM pac_sales_3.f_invoice_date(:NEW.invoice_id)) AND
+	    		month = EXTRACT (MONTH FROM pac_sales_3.f_invoice_date(:NEW.invoice_id)) AND
+	    		product_id = :NEW.product_id ;             
+		END IF ;
+	END IF ;    
     
 END;
 /
 
-----------------------------------------------------------------------------------------
+
+
+--==========================================================================================
 --                      test the triggers
-----------------------------------------------------------------------------------------
+--==========================================================================================
 
 
 ----------------------------------------------------------------------------------------
@@ -627,7 +759,7 @@ SELECT * FROM invoices WHERE invoice_id = 1 ;
 /* 
   "invoice_date" is '2013-08-01', "cust_id" is 1001, 
   "invoice_vat is 868650, invoice_amount is 4527400, 
-  "n_of_rows" is 3 and amount_received is 0
+  "n_of_rows" is 3 and amount_received and refused is 0
 */
 
 SELECT * FROM customers WHERE cust_id = 
@@ -662,11 +794,10 @@ SELECT * FROM product_monthly_stats WHERE year = 2013 AND month = 8
 
 
 ---------------------------------------------------------------------------
-/* for this invoice in row number 1 (product_id is 1), change the value of
+/* for this invoice, in row number 1 (product_id is 1), change the value of
   "quantity" from 50 to 500
 */
 UPDATE invoice_details SET quantity = 500 WHERE invoice_id = 1 AND row_number = 1;
-
 
 
 --  let's see how the triggers did their job
@@ -679,31 +810,34 @@ INVOICE_ID ROW_NUMBER   QUANTITY UNIT_PRICE PRODUCT_ID    ROW_VAT
          1          2         75       1050          2       9450
          1          3        500       7060          5     847200
 */
+-- in row 1, QUANTITY was changed from `50` to `500` and the ROW_VAT from `12000` to `120000`
+
 
 SELECT * FROM invoices WHERE invoice_id = 1 ;
 
 /* 
-  "invoice_vat is 976650, invoice_amount is 5085400, 
+  "invoice_vat is 976650 (old values was 868650), 
+  invoice_amount is now 5085400 (it was 4527400 before the insert), 
   "n_of_rows" is 3 and amount_received is 0
 */
 
 SELECT * FROM customers WHERE cust_id = 
   (SELECT cust_id FROM invoices WHERE invoice_id = 1) ;
 
--- the customer current balance is 32651544
+-- the customer current balance is 32651544 (it was 32093544)
 
 
 SELECT * FROM months WHERE year = 2013 AND month = 8 ;
--- sales total for this month is 40030766
+-- sales total for this month is 40030766 (old value was 39472766)
 
 
 SELECT * FROM customer_monthly_stats WHERE year = 2013 AND month = 8 
   AND cust_id = 1001 ;
--- sales total for this customer and this month is 11247432
+-- sales total for this customer and this month is 11247432 (it was 10689432)
 
 SELECT * FROM product_monthly_stats WHERE year = 2013 AND month = 8 
   AND product_id = 1 ;
--- sales total for this products and this month is 1249424
+-- sales total for this products and this month is 1249424 (old value was 691424)
 
 COMMIT ;
 
@@ -770,7 +904,7 @@ SELECT * FROM product_monthly_stats WHERE (year = 2014 AND month = 10
 */
 
 
--- for invoice 61 change the date from '07-10-2014' to '01-11-2014' cust_id from 1003 to 1004
+-- in invoice 61, change the date from '07-10-2014' to '01-11-2014' cust_id from 1003 to 1004
 UPDATE invoices
 SET invoice_date = DATE'2014-11-01', cust_id = 1004 
 WHERE invoice_id = 61 ;
@@ -839,11 +973,14 @@ SELECT * FROM product_monthly_stats WHERE (year = 2014 AND month = 10
          0          0              0           5       2014         10
 */
 
+-- now the update can be commited
+COMMIT ;
 
 
 
 ----------------------------------------------------------------------------------------
---   3. change the row number in an invoice ("invoice_id") remains unchanged
+--   3. change the row number in an invoice ("invoice_id" remains unchanged)
+-- this operation must be blocked (according to the current business requirements)
 
 
 SELECT MAX(invoice_id) FROM invoices ;
@@ -868,6 +1005,7 @@ SQL Error: ORA-20010: Value of attribute "row_number" cannot be changed within a
 ORA-06512: la "SIA.TRG_INV_DETAILS_UPD1", linia 8
 ORA-04088: eroare în timpul executiei triggerului 'SIA.TRG_INV_DETAILS_UPD1'
 */
+
 
 
 ----------------------------------------------------------------------------------------
@@ -1004,9 +1142,11 @@ COMMIT ;
 
 
 
+
+
 ----------------------------------------------------------------------------------------
--- 5. move a row from an invoice to another changing the row number in the new invoice
---   this time, we take care of row numbers in both in invoices, too
+-- 5. move a row from an invoice to another, changing the row number in the new invoice;
+--   this time, we take care of row numbers in both invoices, too
 
 SELECT *
 FROM invoices 
@@ -1031,10 +1171,10 @@ INVOICE_ID INVOICE_DATE    CUST_ID    INVOICE_VAT INVOICE_AMOUNT  N_OF_ROWS
 
 SELECT cust_id, cust_name, current_balance FROM customers WHERE cust_id IN (1003, 1007)  ;
 /*
-   CUST_ID CUST_NAME                                          CURRENT_BALANC
----------- -------------------------------------------------- --------------
-      1003 Client C SRL                                             36280272
-      1007 Client G SRL                                               952444
+   CUST_ID CUST_NAME                                          CURRENT_BALANCE
+---------- -------------------------------------------------- ---------------
+      1003 Client C SRL                                              30217908
+      1007 Client G SRL                                                952444
 */
 
 SELECT * FROM months WHERE (year = 2013 AND month = 10) OR
@@ -1091,8 +1231,8 @@ ORDER BY product_id, year, month;
 
 
 -- we'll move the forth row of invoice 30 into the invoice 48; in order to 
---   preserve row numbering in both invoices the moved row is the last in invoice 30
---   and will become second in invoice 48
+--   preserve row numbering (in both invoices) the moved row is the last in invoice 30
+--   and it will become the second in invoice 48
 
 UPDATE invoice_details 
 SET invoice_id = 48, row_number = 2
@@ -1117,10 +1257,10 @@ INVOICE_ID INVOICE_DATE    CUST_ID    INVOICE_VAT INVOICE_AMOUNT  N_OF_ROWS
 
 SELECT cust_id, cust_name, current_balance FROM customers WHERE cust_id IN (1003, 1007)  ;
 /*
-   CUST_ID CUST_NAME                                          CURRENT_BALANC
----------- -------------------------------------------------- --------------
-      1003 Client C SRL                                             30382212
-      1007 Client G SRL                                              6850504
+   CUST_ID CUST_NAME                                          CURRENT_BALANCE
+---------- -------------------------------------------------- ---------------
+      1003 Client C SRL                                              24319848
+      1007 Client G SRL                                               6850504
 */
 
 SELECT * FROM months WHERE (year = 2013 AND month = 10) OR
@@ -1176,6 +1316,7 @@ ORDER BY product_id, year, month;
 */
 
 COMMIT ;
+
 
 
 
@@ -1236,7 +1377,7 @@ FROM check_months c_m ;
 
 -- check the values in table "customer_monthly_stats"
 WITH check_c_m_s AS (
-    SELECT c_m_s.year, c_m_s.month, sales, 
+    SELECT c_m_s.year, c_m_s.month, cust_id, sales, 
         (SELECT COALESCE(SUM(invoice_amount),0) 
         FROM invoices 
         WHERE EXTRACT (YEAR FROM invoice_date) = c_m_s.year AND
@@ -1288,8 +1429,7 @@ BEGIN
     -- decrease "invoice_VAT", "invoice_amount", "n_of_rows" for the invoice 
     --   containing the deleted line/row
     UPDATE invoices
-    SET 
-        invoice_VAT = invoice_VAT - :OLD.row_VAT,
+    SET invoice_VAT = invoice_VAT - :OLD.row_VAT,
         invoice_amount = invoice_amount - 
         	(:OLD.quantity * :OLD.unit_price + :OLD.row_VAT),
         n_of_rows = n_of_rows - 1
@@ -1315,34 +1455,32 @@ SELECT invoice_id, invoice_date, cust_id, invoice_vat,
   invoice_amount,n_of_rows
 FROM invoices WHERE invoice_id = 61 ;
 /*
-INVOICE_ID INVOICE_DATE    CUST_ID    INVOICE_VAT INVOICE_AMOUNT  N_OF_ROWS
----------- ------------ ---------- -------------- -------------- ----------
-        61 07-10-2014         1003        1162164        6062364          4
-*/ 
+INVOICE_ID INVOICE_DA    CUST_ID INVOICE_VAT INVOICE_AMOUNT  N_OF_ROWS
+---------- ---------- ---------- ----------- -------------- ----------
+        61 01-11-2014       1004     1162164        6062364          4*/ 
 
 
-SELECT cust_id, cust_name, current_balance FROM customers WHERE cust_id = 1003  ;
+SELECT cust_id, cust_name, current_balance FROM customers WHERE cust_id = 1004  ;
 /*
-   CUST_ID CUST_NAME                                          CURRENT_BALANC
----------- -------------------------------------------------- --------------
-      1003 Client C SRL                                             30382212
+  CUST_ID CUST_NAME                                          CURRENT_BALANCE
+---------- -------------------------------------------------- ---------------
+      1004 Client D                                                  26703412
 */
 
-SELECT * FROM months WHERE year = 2014 AND month = 10 ;
+SELECT * FROM months WHERE year = 2014 AND month = 11 ;
 /*
-YEAR      MONTH            SALES_TOTAL   REFUSALS_TOTAL CANCELLATIONS_TO    RECEIVED_TOTAL
----------- ---------- ---------------- ---------------- ----------------- ----------------
-      2014         10          6062364                0                 0                0
+      YEAR      MONTH SALES_TOTAL REFUSALS_TOTAL CANCELLATIONS_TOTAL RECEIVED_TOTAL
+---------- ---------- ----------- -------------- ------------------- --------------
+      2014         11     6062364              0                   0              0
 */
 
-
-SELECT * FROM customer_monthly_stats WHERE year = 2014 AND month = 10 AND cust_id = 1003 
+SELECT * FROM customer_monthly_stats WHERE year = 2014 AND month = 11 AND cust_id = 1004 
 ORDER BY cust_id, year, month;
   
 /*  
-   CUST_ID       YEAR      MONTH      SALES   REFUSALS    CANCELLATIONS        RECEIVED
----------- ---------- ---------- ---------- ---------- ----------------  --------------
-      1003       2014         10    6062364          0                0               0
+  CUST_ID       YEAR      MONTH      SALES   REFUSALS CANCELLATIONS   RECEIVED
+---------- ---------- ---------- ---------- ---------- ------------- ----------
+      1004       2014         11    6062364          0             0          0
 */
 
 
@@ -1356,17 +1494,17 @@ INVOICE_ID ROW_NUMBER   QUANTITY UNIT_PRICE PRODUCT_ID    ROW_VAT
         61          4        755       6300          5    1141560
 */
 
-SELECT * FROM product_monthly_stats WHERE year = 2014 AND month = 10 AND 
+SELECT * FROM product_monthly_stats WHERE year = 2014 AND month = 11 AND 
   product_id IN (SELECT product_id FROM invoice_details 
       WHERE invoice_id = 61) 
 ORDER BY product_id, year, month;
 /*  
-     SALES   REFUSALS  CANCELLATIONS PRODUCT_ID       YEAR      MONTH
----------- ---------- -------------- ---------- ---------- ----------
-     42728          0              0          2       2014         10
-     34720          0              0          3       2014         10
-     86856          0              0          4       2014         10
-   5898060          0              0          5       2014         10
+     SALES   REFUSALS CANCELLATIONS PRODUCT_ID       YEAR      MONTH
+---------- ---------- ------------- ---------- ---------- ----------
+     42728          0             0          2       2014         11
+     34720          0             0          3       2014         11
+     86856          0             0          4       2014         11
+   5898060          0             0          5       2014         11
 */
 
 
@@ -1380,33 +1518,33 @@ SELECT invoice_id, invoice_date, cust_id, invoice_vat,
   invoice_amount,n_of_rows
 FROM invoices WHERE invoice_id = 61 ;
 /*
-INVOICE_ID INVOICE_DATE    CUST_ID    INVOICE_VAT INVOICE_AMOUNT  N_OF_ROWS
----------- ------------ ---------- -------------- -------------- ----------
-        61 07-10-2014         1003          20604         164304          3
+INVOICE_ID INVOICE_DA    CUST_ID INVOICE_VAT INVOICE_AMOUNT  N_OF_ROWS
+---------- ---------- ---------- ----------- -------------- ----------
+        61 01-11-2014       1004       20604         164304          3
 */ 
 
 
-SELECT cust_id, cust_name, current_balance FROM customers WHERE cust_id = 1003  ;
+SELECT cust_id, cust_name, current_balance FROM customers WHERE cust_id = 1004  ;
 /*
-   CUST_ID CUST_NAME                                          CURRENT_BALANC
----------- -------------------------------------------------- --------------
-      1003 Client C SRL                                             24484152
+   CUST_ID CUST_NAME                                          CURRENT_BALANCE
+---------- -------------------------------------------------- ---------------
+      1004 Client D                                                  20805352
 */
 
-SELECT * FROM months WHERE year = 2014 AND month = 10 ;
+SELECT * FROM months WHERE year = 2014 AND month = 11 ;
 /*
-YEAR      MONTH            SALES_TOTAL   REFUSALS_TOTAL CANCELLATIONS_TO    RECEIVED_TOTAL
----------- ---------- ---------------- ---------------- ----------------- ----------------
-      2014         10           164304                0                 0                0
+     YEAR      MONTH SALES_TOTAL REFUSALS_TOTAL CANCELLATIONS_TOTAL RECEIVED_TOTAL
+---------- ---------- ----------- -------------- ------------------- --------------
+      2014         11      164304              0                   0              0
 */
 
 
-SELECT * FROM customer_monthly_stats WHERE year = 2014 AND month = 10 AND cust_id = 1003 ;
+SELECT * FROM customer_monthly_stats WHERE year = 2014 AND month = 11 AND cust_id = 1004 ;
   
 /*  
-   CUST_ID       YEAR      MONTH      SALES   REFUSALS    CANCELLATIONS        RECEIVED
----------- ---------- ---------- ---------- ---------- ----------------  --------------
-      1003       2014         10     164304          0                0               0
+   CUST_ID       YEAR      MONTH      SALES   REFUSALS CANCELLATIONS   RECEIVED
+---------- ---------- ---------- ---------- ---------- ------------- ----------
+      1004       2014         11     164304          0             0          0
 */
 
 
@@ -1419,20 +1557,19 @@ INVOICE_ID ROW_NUMBER   QUANTITY UNIT_PRICE PRODUCT_ID    ROW_VAT
         61          3         55       1410          4       9306
 */
 
-SELECT * FROM product_monthly_stats WHERE year = 2014 AND month = 10 AND 
+SELECT * FROM product_monthly_stats WHERE year = 2014 AND month = 11 AND 
   product_id IN (SELECT product_id FROM invoice_details 
       WHERE invoice_id = 61) 
 ORDER BY product_id, year, month;
 /*  
-     SALES   REFUSALS  CANCELLATIONS PRODUCT_ID       YEAR      MONTH
----------- ---------- -------------- ---------- ---------- ----------
-     42728          0              0          2       2014         10
-     34720          0              0          3       2014         10
-     86856          0              0          4       2014         10
+     SALES   REFUSALS CANCELLATIONS PRODUCT_ID       YEAR      MONTH
+---------- ---------- ------------- ---------- ---------- ----------
+     42728          0             0          2       2014         11
+     34720          0             0          3       2014         11
+     86856          0             0          4       2014         11
 */
 
 COMMIT ;
-
 
 ----------------------------------------------------------------------------------------
 --              check the triggers with a couple of queries
