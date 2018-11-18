@@ -1413,13 +1413,25 @@ FROM check_p_m_s c_p_m_s ;
 
 
 
+--==========================================================================================
+--					III. DELETE triggers for table INVOICE_DETAILS
+--==========================================================================================
+/*
 ------------------------------------------------------------------------------------------
--- Tasks for the DELETE trigger of table "invoice_details":
+III.a Tasks for the DELETE - BEFORE - ROW trigger
 
--- * decrease "invoice_VAT", "invoice_amount", "n_of_rows" for the invoice 
---       containing the deleted line/row
--- * update denormalized table "product_monthly_stats"
---       for the month and the product contained in the deleted line
+	Nothing to do.
+
+
+III.b Tasks for the DELETE - AFTER - ROW trigger
+
+	* decrease "invoice_VAT", "invoice_amount", "n_of_rows" for the invoice 
+		containing the deleted line/row
+
+* update denormalized table "product_monthly_stats"
+       for the month and the product contained in the deleted line
+
+*/
 
 CREATE OR REPLACE TRIGGER trg_inv_details_del
 	AFTER DELETE ON invoice_details FOR EACH ROW
