@@ -1,1 +1,1 @@
-Here solutions for current assessment will be uploaded
+These are the scripts for 3rd Team Assessment database setup.
