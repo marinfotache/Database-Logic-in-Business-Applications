@@ -400,7 +400,6 @@ Tasks for the UPDATE triggers of table INVOICES:
 		 				
 	  	A.2 if not, do nothing
 
- 
  	B. test if the year-month of `invoice_date` or the `cust_id` were changed 
  	
 		B.1 if so, then: 
