@@ -16,8 +16,6 @@ https://github.com/marinfotache/Database-Logic-in-Business-Applications/blob/mas
 
 https://github.com/marinfotache/Database-Logic-in-Business-Applications/blob/master/06_Triggers/06-02b_en_triggers__invoice_details.sql
 
-https://github.com/marinfotache/Database-Logic-in-Business-Applications/blob/master/06_Triggers/06-02c_en_triggers__receipts__receipt_details.sql
-
 
 See also the `sales` database schema and denormalized attributes in presentation:
 

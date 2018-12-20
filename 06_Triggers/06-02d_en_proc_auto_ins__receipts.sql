@@ -62,7 +62,8 @@ BEGIN
                 
                 v_receipt_id := NULL ;
             
-                -- scan all the customer invoices
+                -- scan current customer's invoices for the current year-month
+                --   that haven't been fully paid
                 FOR rec_invoice IN (SELECT * FROM invoices 
                 		WHERE cust_id = rec_cust.cust_id
                     AND invoice_date <= v_last_day AND 

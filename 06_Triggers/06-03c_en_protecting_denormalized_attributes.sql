@@ -51,11 +51,11 @@ SELECT *
 FROM (SELECT * FROM invoices ORDER BY invoice_id DESC)
 WHERE rownum = 1 ;
 
-SELECT * FROM invoices WHERE invoice_id = 62 ;
+SELECT * FROM invoices WHERE invoice_id = 61 ;
 
-UPDATE invoices SET invoice_amount = 1234567890 WHERE invoice_id = 62 ;
+UPDATE invoices SET invoice_amount = 1234567890 WHERE invoice_id = 61 ;
 
-SELECT * FROM invoices WHERE invoice_id = 62 ;
+SELECT * FROM invoices WHERE invoice_id = 61 ;
 
 -- revert the update 
 ROLLBACK ;
@@ -213,21 +213,21 @@ SELECT *
 FROM (SELECT * FROM invoices ORDER BY invoice_id DESC)
 WHERE rownum = 1 ;
 
-SELECT * FROM invoices WHERE invoice_id = 62 ;
-SELECT * FROM invoice_details WHERE invoice_id = 62 ;
+SELECT * FROM invoices WHERE invoice_id = 61 ;
+SELECT * FROM invoice_details WHERE invoice_id = 61 ;
 
 -- next insert (and consequenting triggers) must run without any problem:
-INSERT INTO invoice_details VALUES (62, 3, 100, 1000, 3, NULL);
+INSERT INTO invoice_details VALUES (61, 3, 100, 1000, 3, NULL);
 
-SELECT * FROM invoices WHERE invoice_id = 62 ;
-SELECT * FROM invoice_details WHERE invoice_id = 62 ;
+SELECT * FROM invoices WHERE invoice_id = 61 ;
+SELECT * FROM invoice_details WHERE invoice_id = 61 ;
 
 COMMIT ;
 
 -- now the unauhorisez update of "invoice_amout" will be blocked
-UPDATE invoices SET invoice_amount = 1234567890 WHERE invoice_id = 62 ;
+UPDATE invoices SET invoice_amount = 1234567890 WHERE invoice_id = 61 ;
 /*
-UPDATE invoices SET invoice_amount = 1234567890 WHERE invoice_id = 62 
+UPDATE invoices SET invoice_amount = 1234567890 WHERE invoice_id = 61 
 Error report -
 SQL Error: ORA-20015: Attributes invoice_VAT, invoice_amount, or n_of_rows cannot be edited interactively
 ORA-06512: la "SDBIS.TRG_INVOICES_INV_DETAILS", linia 3
