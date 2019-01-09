@@ -29,7 +29,6 @@ https://github.com/marinfotache/Database-Logic-in-Business-Applications/blob/mas
 https://github.com/marinfotache/Database-Logic-in-Business-Applications/blob/master/07_Business%20Rules%20with%20PL%20SQL/07-01a_BusinessRules1__basic_BR.sql
 
 See also the presentation:
-See also the presentation:
 https://github.com/marinfotache/Database-Logic-in-Business-Applications/blob/master/07_Business%20Rules%20with%20PL%20SQL/07-01_en_Business%20Rules%20with%20PL%20SQL%20(1).pptx
 
 */
