@@ -660,6 +660,9 @@ CREATE OR REPLACE TRIGGER trg_invoices_del2
 	AFTER DELETE ON invoices FOR EACH ROW
 BEGIN 
 
+    -- question:
+    -- Are these next operations necessary???
+
     -- update the balance for the deleted invoice customer
     UPDATE customers 
 	SET current_balance = current_balance - :OLD.invoice_amount 
